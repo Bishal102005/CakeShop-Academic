@@ -533,7 +533,19 @@
                             <div class="mobile-order-row"><strong>Qty</strong><span><%= row.get("qty") != null ? row.get("qty") : 1 %></span></div>
                             <div class="mobile-order-row"><strong>Payment</strong><span>₹<%= row.get("cakePrice") %></span></div>
                             <div class="mobile-order-row"><strong>Placed</strong><span><%= row.get("deliveryDate") %></span></div>
-                            <div class="mobile-order-row"><strong>Status</strong><span class="status-badge <%= statusClass %>"><%= currentStatus %></span></div>
+                            <div class="mobile-order-row">
+                              <strong>Status</strong>
+                              <span>
+                                <form method="POST" action="${pageContext.request.contextPath}/update-order-status" style="margin:0">
+                                  <input type="hidden" name="order_id" value="<%= row.get("id") %>">
+                                  <select name="status" class="status-badge <%= statusClass %>" onchange="this.form.submit()" style="cursor:pointer; font-family:inherit;">
+                                    <% for (String opt : OrderDao.VALID_STATUSES) { %>
+                                      <option value="<%= opt %>" <%= opt.equals(currentStatus) ? "selected" : "" %>><%= opt %></option>
+                                    <% } %>
+                                  </select>
+                                </form>
+                              </span>
+                            </div>
                           </div>
                   <%
                         }
