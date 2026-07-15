@@ -26,7 +26,7 @@
 %>
 
 <div class="announcement-bar">
-    <span>Artisan Pastry · Est. 2014</span>
+    <span>Artisan Pastry · Est. 2026</span>
     <span class="diamond">◆</span>
     <span>Welcome Back</span>
 </div>
