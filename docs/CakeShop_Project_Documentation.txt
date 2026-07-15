@@ -1,0 +1,374 @@
+================================================================================
+                    SWEET CRUMBS BAKERY — CAKESHOP
+                      PROJECT DOCUMENTATION
+================================================================================
+
+Document Version : 1.0
+Project Name     : CakeShop
+Application Type : Java Web Application (JSP + Servlets)
+Database         : MySQL (sweetcrumbs_db)
+Generated        : July 2026
+
+================================================================================
+1. INTRODUCTION
+================================================================================
+
+CakeShop (branded as Sweet Crumbs Bakery) is a Java-based web application for
+an artisan bakery and online cake ordering system. Customers can browse the
+cake catalogue, register an account, place orders for delivery, and track order
+status. Administrators can manage the cake menu, view all customer orders, and
+update order fulfillment status.
+
+The application uses a classic Java EE architecture:
+  - JSP pages for the user interface
+  - Java Servlets for business logic
+  - MySQL database for data storage
+  - HttpSession for login and role management
+
+================================================================================
+2. PROJECT OBJECTIVES
+================================================================================
+
+  - Provide an online storefront for bakery products
+  - Allow registered customers to place cake orders with delivery details
+  - Restrict ordering to authenticated users only (no guest checkout)
+  - Enable administrators to manage cakes and customer orders
+  - Track order lifecycle from Received to Delivered or Cancelled
+  - Maintain customer accounts with profile and order history
+
+================================================================================
+3. TECHNOLOGY STACK
+================================================================================
+
+  Frontend           : JSP, HTML, CSS (style.css)
+  Backend            : Java Servlets (Java 8)
+  Application Server : GlassFish / Java EE 7
+  Database           : MySQL (sweetcrumbs_db)
+  JDBC Driver        : MySQL Connector/J 5.1.49
+  IDE                : Apache NetBeans
+  Build Tool         : Apache Ant
+  Deployable Output  : CakeShop.war
+  Session Timeout    : 30 minutes
+
+================================================================================
+4. SYSTEM ARCHITECTURE
+================================================================================
+
+4.1 Three-Tier Architecture
+-----------------------------
+  Presentation Tier  : JSP pages (index.jsp, login.jsp, order.jsp, admin.jsp)
+  Business Logic     : Servlets and DAO classes in src/java/controller/
+  Data Tier          : MySQL database via JDBC
+
+4.2 Request Flow (Home Page)
+-----------------------------
+  1. User opens index.jsp
+  2. If cake menu is not loaded, request forwards to CakeServlet (/admin GET)
+  3. CakeServlet queries all cakes from the database
+  4. Results are forwarded back to index.jsp as "cakeMenu" attribute
+  5. Home page displays the cake catalogue grid
+
+4.3 Authentication Model
+-------------------------
+  Two session attributes are used:
+    - loggedInUser  : User object for registered customers
+    - adminUser     : String username for administrators
+
+  Admin and customer sessions are mutually exclusive.
+  Logging in as one role clears the other from the session.
+
+================================================================================
+5. PROJECT DIRECTORY STRUCTURE
+================================================================================
+
+  CakeShop/
+  |
+  |-- src/java/controller/     Servlets, DAO classes, AuthUtil
+  |-- src/java/model/          Cake.java, User.java
+  |-- web/                     JSP pages, CSS, assets, WEB-INF
+  |     |-- index.jsp          Home page / cake catalogue
+  |     |-- login.jsp          Sign in and sign up
+  |     |-- order.jsp          Checkout (customer) / cake details (admin)
+  |     |-- my-orders.jsp      Customer order history
+  |     |-- my-account.jsp     Customer profile
+  |     |-- admin.jsp          Admin dashboard
+  |     |-- style.css          Application stylesheet
+  |     |-- assets/            Cake product images
+  |     |-- WEB-INF/web.xml    Deployment descriptor
+  |
+  |-- sql/                     Database setup scripts
+  |-- nbproject/               NetBeans project config
+  |-- build/                   Compiled output
+  |-- dist/                    CakeShop.war deployable file
+  |-- docs/                    Project documentation
+
+================================================================================
+6. DATABASE DESIGN
+================================================================================
+
+Database Name : sweetcrumbs_db
+Connection URL: jdbc:mysql://localhost:3306/sweetcrumbs_db
+Default User  : root
+Default Pass  : 102005  (configured in DbUtil.java)
+
+--------------------------------------------------------------------------------
+6.1 TABLE: users
+--------------------------------------------------------------------------------
+  Column       Type                      Description
+  -----------  ------------------------  ----------------------------------
+  user_id      INT (PK, AUTO_INCREMENT)  Unique customer ID
+  username     VARCHAR(50), UNIQUE       Login username
+  email        VARCHAR(100), UNIQUE      Customer email
+  password     VARCHAR(255)              Account password
+  full_name    VARCHAR(100)              Customer display name
+  phone        VARCHAR(20)               Contact phone number
+  created_at   TIMESTAMP                 Account creation date
+
+--------------------------------------------------------------------------------
+6.2 TABLE: cakes
+--------------------------------------------------------------------------------
+  Column       Type          Description
+  -----------  ------------  ----------------------------------
+  id           INT (PK)      Cake identifier
+  number       VARCHAR       Catalogue number (e.g. N01)
+  code         VARCHAR       Product code
+  name         VARCHAR       Cake name
+  description  TEXT          Product description
+  tag          VARCHAR       Category tag (e.g. Bestseller)
+  rating       DOUBLE        Star rating
+  price        DOUBLE        Price in INR (1 lb base)
+  image_file   VARCHAR       Image filename in assets folder
+  ingredients  TEXT          Comma-separated ingredient list
+
+--------------------------------------------------------------------------------
+6.3 TABLE: orders
+--------------------------------------------------------------------------------
+  Column            Type           Description
+  ----------------  -------------  ----------------------------------
+  order_id          INT (PK)       Order identifier
+  cake_name         VARCHAR        Ordered cake name
+  cake_price        DOUBLE         Price at time of order
+  customer_name     VARCHAR        Delivery contact name
+  customer_phone    VARCHAR        Delivery contact phone
+  delivery_date     VARCHAR/DATE   Requested delivery date
+  customer_address  TEXT           Full delivery address
+  order_status      VARCHAR(50)    Order status (see Section 13)
+  user_id           INT (nullable) Links order to registered user
+
+--------------------------------------------------------------------------------
+6.4 SQL SETUP SCRIPTS
+--------------------------------------------------------------------------------
+  sql/users_table.sql       Creates users table; adds user_id to orders
+  sql/order_status.sql      Adds order_status column (default: Received)
+  sql/remove_demo_orders.sql Removes guest orders where user_id IS NULL
+
+================================================================================
+7. SERVLET COMPONENTS
+================================================================================
+
+  Servlet                  URL Mapping           Method   Purpose
+  -----------------------  --------------------  -------  -------------------------
+  CakeServlet              /admin                GET      Load cake catalogue
+  CakeServlet              /admin                POST     Admin: add new cake
+  LoginServlet             /login                GET/POST Login, logout
+  RegisterServlet          /register             POST     Customer registration
+  SubmitOrderServlet       /SubmitOrderServlet   POST     Place order (login req.)
+  MyOrdersServlet          /my-orders            GET      Customer order history
+  MyAccountServlet         /my-account           GET      Customer profile page
+  ViewOrdersServlet        /view-orders          GET      Admin: all orders
+  UpdateOrderStatusServlet /update-order-status  POST     Admin: update status
+
+================================================================================
+8. DATA ACCESS & UTILITY CLASSES
+================================================================================
+
+  Class      Responsibility
+  ---------  ----------------------------------------------------------------
+  DbUtil     Central JDBC connection factory for sweetcrumbs_db
+  AuthUtil   Session checks: isAdminLoggedIn, isUserLoggedIn,
+             requireAdmin, requireUser
+  UserDao    User queries: findByUsername, findByEmail, findById, createUser
+  CakeDao    Fetch cakes by ID or name from database
+  OrderDao   User orders, status updates, validation, row mapping
+
+================================================================================
+9. JSP PAGES (USER INTERFACE)
+================================================================================
+
+  Page             Access          Description
+  ---------------  --------------  ------------------------------------------
+  index.jsp        Public          Home page with cake catalogue and Buy btn
+  login.jsp        Public          Sign in / Sign up (Customer & Admin tabs)
+  order.jsp        Customer        Checkout form to place orders
+  order.jsp        Admin           Read-only cake details when admin clicks Buy
+  my-orders.jsp    Customer        Personal order history with status badges
+  my-account.jsp   Customer        Account profile information
+  admin.jsp        Admin           Dashboard: orders tab + manage cakes tab
+  footer.jsp       Include         Shared footer fragment
+
+================================================================================
+10. FUNCTIONAL FEATURES
+================================================================================
+
+10.1 CUSTOMER FEATURES
+-----------------------
+  - Browse cake catalogue with images, ratings, descriptions, ingredients
+  - Register account (username, email, password, full name, phone)
+  - Sign in and sign out
+  - Buy a cake (redirects to login if not authenticated)
+  - Complete checkout with name, phone, delivery date, and address
+  - View order history at /my-orders
+  - View account details at /my-account
+  - Track order status updates from admin
+
+10.2 ADMINISTRATOR FEATURES
+----------------------------
+  - Sign in with admin credentials
+  - Access Admin Console at /view-orders
+  - View dashboard stats: active orders, delivered count, revenue, menu count
+  - Review all customer orders with delivery details
+  - Update order status via dropdown
+  - Add new cakes to the menu
+  - Click Buy on home page to view full cake details (read-only)
+
+================================================================================
+11. USER WORKFLOWS
+================================================================================
+
+11.1 CUSTOMER ORDER WORKFLOW
+-----------------------------
+  Step 1 : Customer visits home page and browses cakes
+  Step 2 : Customer clicks Buy on a desired cake
+  Step 3 : If not logged in -> redirected to login with return URL
+  Step 4 : After login -> checkout page with pre-filled name and phone
+  Step 5 : Customer submits order -> saved to database with user_id
+  Step 6 : Customer redirected to My Orders with success message
+  Step 7 : Admin updates order status as it progresses
+  Step 8 : Customer sees updated status in My Orders
+
+11.2 ADMIN WORKFLOW
+--------------------
+  Step 1 : Admin goes to login and selects Admin account type
+  Step 2 : Admin enters credentials and opens Admin Console
+  Step 3 : Admin reviews incoming orders on Customer Orders tab
+  Step 4 : Admin updates status (Received -> Baking -> Out for Delivery -> Delivered)
+  Step 5 : Admin switches to Manage Cakes tab to add new products
+  Step 6 : Admin can browse home page and click Buy to inspect cake details
+
+================================================================================
+12. SECURITY & ACCESS CONTROL
+================================================================================
+
+  Resource              Guest     Customer    Admin
+  --------------------  --------  ----------  ---------------------------
+  Home / catalogue      Allowed   Allowed     Allowed
+  Login / Register      Allowed   Allowed     Allowed
+  Place order           Denied    Allowed     Denied (details view only)
+  My Orders             Denied    Allowed     Redirected to admin console
+  My Account            Denied    Allowed     Redirected to admin console
+  Admin Console         Denied    Denied      Allowed
+  Add cake              Denied    Denied      Allowed
+  Update order status   Denied    Denied      Allowed
+
+  Notes:
+  - Access control is enforced in JSP scriptlets and Servlet methods
+  - AuthUtil is used for session-based checks
+  - Passwords are stored in plain text in the current version
+
+================================================================================
+13. ORDER STATUS LIFECYCLE
+================================================================================
+
+  Valid statuses (managed by OrderDao):
+    1. Received            (default for new orders)
+    2. Baking
+    3. Out for Delivery
+    4. Delivered
+    5. Cancelled
+
+  Admin updates status from the Admin Console.
+  Customers see current status on the My Orders page.
+
+================================================================================
+14. INSTALLATION & DEPLOYMENT GUIDE
+================================================================================
+
+14.1 PREREQUISITES
+-------------------
+  - Java JDK 8 or higher
+  - Apache NetBeans IDE with Java EE support
+  - GlassFish Server (Java EE 7)
+  - MySQL Server on localhost:3306
+  - MySQL Connector/J JAR (mysql-connector-java-5.1.49.jar)
+
+14.2 DATABASE SETUP
+--------------------
+  1. Create database:
+       CREATE DATABASE sweetcrumbs_db;
+
+  2. Create cakes and orders tables (existing schema)
+
+  3. Run:  sql/users_table.sql
+     (creates users table and adds user_id to orders)
+
+  4. Run:  sql/order_status.sql
+     (adds order_status column)
+
+  5. Verify MySQL credentials in DbUtil.java match your setup
+
+14.3 RUNNING THE APPLICATION
+-----------------------------
+  1. Open CakeShop project in NetBeans
+  2. Configure GlassFish as the application server
+  3. Ensure MySQL JDBC driver is in project libraries
+  4. Clean and Build (generates dist/CakeShop.war)
+  5. Run project — NetBeans deploys to GlassFish
+  6. Open: http://localhost:8080/CakeShop/
+
+14.4 DEFAULT CREDENTIALS
+-------------------------
+  Role          Username              Password
+  ------------  --------------------  ------------
+  Administrator admin                 admin123
+  Customer      (register via Sign Up) User-defined
+
+================================================================================
+15. CONFIGURATION REFERENCE
+================================================================================
+
+  Setting          Location            Value
+  ---------------  ------------------  ------------------------------------
+  Database URL     DbUtil.java         jdbc:mysql://localhost:3306/sweetcrumbs_db
+  DB Username      DbUtil.java         root
+  DB Password      DbUtil.java         102005
+  Session Timeout  web.xml             30 minutes
+  Welcome File     web.xml             index.jsp
+  WAR Name         project.properties  CakeShop.war
+  Java Version     project.properties  1.8 (source/target)
+
+================================================================================
+16. POSSIBLE FUTURE ENHANCEMENTS
+================================================================================
+
+  - Password hashing (BCrypt) for secure storage
+  - Payment gateway integration (UPI, cards)
+  - Email/SMS order confirmation notifications
+  - Cake image upload from admin panel
+  - Edit and delete existing cakes
+  - Customer order cancellation before baking
+  - Search and filter cakes by category or price
+  - Connection pooling (e.g. HikariCP)
+
+================================================================================
+17. CONCLUSION
+================================================================================
+
+CakeShop is a complete bakery e-commerce web application built with Java
+Servlets and JSP. It demonstrates session-based authentication, JDBC database
+operations, role-based access control, and a full order management workflow.
+The system is suitable for academic projects or small business use with
+further security improvements such as password hashing.
+
+================================================================================
+                              END OF DOCUMENT
+================================================================================

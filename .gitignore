@@ -1,0 +1,12 @@
+# NetBeans specific directories
+nbproject/private/
+nbproject/genfiles.properties
+
+# Compiled source and distributions
+build/
+dist/
+
+# OS specific files
+.DS_Store
+Thumbs.db
+Desktop.ini
