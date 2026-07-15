@@ -93,14 +93,18 @@ public class CakeServlet extends HttpServlet {
         double price = parseDouble(request.getParameter("price"));
         double rating = parseDouble(request.getParameter("rating"));
         String tag = request.getParameter("tag");
-        String imageFile;
-        try {
-            imageFile = saveUploadedImage(request.getPart("image_file"));
-        } catch (Exception e) {
-            e.printStackTrace();
-            response.sendRedirect(request.getContextPath() + "/view-orders?error=Please+upload+a+valid+cake+image.");
-            return;
+        
+        String imageFile = request.getParameter("cloudinary_url");
+        if (imageFile == null || imageFile.trim().isEmpty()) {
+            try {
+                imageFile = saveUploadedImage(request.getPart("image_file"));
+            } catch (Exception e) {
+                e.printStackTrace();
+                response.sendRedirect(request.getContextPath() + "/view-orders?error=Please+upload+a+valid+cake+image.");
+                return;
+            }
         }
+        
         String description = request.getParameter("description");
         String ingredients = request.getParameter("ingredients");
 
@@ -136,15 +140,18 @@ public class CakeServlet extends HttpServlet {
             return;
         }
 
-        String imageFile = request.getParameter("existing_image_file");
-        Part imagePart = request.getPart("image_file");
-        if (imagePart != null && imagePart.getSize() > 0) {
-            try {
-                imageFile = saveUploadedImage(imagePart);
-            } catch (Exception e) {
-                e.printStackTrace();
-                response.sendRedirect(request.getContextPath() + "/order.jsp?id=" + id + "&error=Please+upload+a+valid+cake+image.");
-                return;
+        String imageFile = request.getParameter("cloudinary_url");
+        if (imageFile == null || imageFile.trim().isEmpty()) {
+            imageFile = request.getParameter("existing_image_file");
+            Part imagePart = request.getPart("image_file");
+            if (imagePart != null && imagePart.getSize() > 0) {
+                try {
+                    imageFile = saveUploadedImage(imagePart);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    response.sendRedirect(request.getContextPath() + "/order.jsp?id=" + id + "&error=Please+upload+a+valid+cake+image.");
+                    return;
+                }
             }
         }
 

@@ -151,7 +151,7 @@
 
         <div class="cake-detail-grid">
             <div class="cake-detail-image" style="background: #fbf9f6; min-height: 320px;">
-                <img src="${pageContext.request.contextPath}/assets/<%= cake.getImageFile() %>" alt="<%= cake.getName() %>" style="width: 100%; height: 100%; min-height: 320px; object-fit: cover; display: block;">
+                 <img src="<%= (cake.getImageFile() != null && (cake.getImageFile().startsWith("http://") || cake.getImageFile().startsWith("https://"))) ? cake.getImageFile() : request.getContextPath() + "/assets/" + cake.getImageFile() %>" alt="<%= cake.getName() %>" style="width: 100%; height: 100%; min-height: 320px; object-fit: cover; display: block;">
             </div>
             <div class="cake-detail-content" style="padding: 2rem;">
                 <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem;">
@@ -189,10 +189,11 @@
         <div style="padding: 2rem; border-top: 1px solid #eee;">
             <details open>
                 <summary style="cursor:pointer;font-weight:700;color:#23160c;font-family:serif;font-size:1.35rem;margin-bottom:1rem;">Edit Cake</summary>
-                <form method="POST" action="${pageContext.request.contextPath}/admin" enctype="multipart/form-data" style="display:grid;gap:1rem;">
+                <form method="POST" action="${pageContext.request.contextPath}/admin" enctype="multipart/form-data" id="editCakeForm" style="display:grid;gap:1rem;">
                     <input type="hidden" name="action" value="updateCake">
                     <input type="hidden" name="id" value="<%= cake.getId() %>">
                     <input type="hidden" name="existing_image_file" value="<%= cake.getImageFile() != null ? cake.getImageFile() : "" %>">
+                    <input type="hidden" name="cloudinary_url" id="cloudinaryUrl" value="">
 
                     <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem;">
                         <div>
@@ -326,6 +327,48 @@
     </div>
     <% } %>
 
+    <script>
+      // Cloudinary direct upload integration
+      const CLOUDINARY_CLOUD_NAME = "<%= System.getenv("CLOUDINARY_CLOUD_NAME") != null ? System.getenv("CLOUDINARY_CLOUD_NAME") : "" %>";
+      const CLOUDINARY_UPLOAD_PRESET = "<%= System.getenv("CLOUDINARY_UPLOAD_PRESET") != null ? System.getenv("CLOUDINARY_UPLOAD_PRESET") : "" %>";
+
+      if (CLOUDINARY_CLOUD_NAME && CLOUDINARY_UPLOAD_PRESET) {
+        const editForm = document.getElementById('editCakeForm');
+        if (editForm) {
+          editForm.addEventListener('submit', async function(e) {
+            const fileInput = editForm.querySelector('input[type="file"]');
+            if (fileInput && fileInput.files.length > 0) {
+              e.preventDefault();
+              const submitBtn = editForm.querySelector('button[type="submit"]');
+              const originalText = submitBtn.innerHTML;
+              submitBtn.disabled = true;
+              submitBtn.innerHTML = 'Uploading image...';
+
+              const file = fileInput.files[0];
+              const formData = new FormData();
+              formData.append('file', file);
+              formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+
+              try {
+                const res = await fetch('https://api.cloudinary.com/v1_1/' + CLOUDINARY_CLOUD_NAME + '/image/upload', {
+                  method: 'POST',
+                  body: formData
+                });
+                if (!res.ok) throw new Error('Cloudinary response was not OK');
+                const data = await res.json();
+                editForm.querySelector('#cloudinaryUrl').value = data.secure_url;
+                fileInput.removeAttribute('name');
+                editForm.submit();
+              } catch(err) {
+                alert('Cloudinary Upload Failed: ' + err.message);
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalText;
+              }
+            }
+          });
+        }
+      }
+    </script>
     <%@include file="footer.jsp" %>
 </body>
 </html>

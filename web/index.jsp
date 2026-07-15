@@ -180,8 +180,8 @@
                                 <% } else { for (Cake c : menu) { %>
                                   <article class="cake-card">
                                     <div class="cake-card-image">
-                                      <img src="${pageContext.request.contextPath}/assets/<%= c.getImageFile() %>"
-                                        alt="<%= c.getName() %>" loading="lazy">
+                                       <img src="<%= (c.getImageFile() != null && (c.getImageFile().startsWith("http://") || c.getImageFile().startsWith("https://"))) ? c.getImageFile() : request.getContextPath() + "/assets/" + c.getImageFile() %>"
+                                         alt="<%= c.getName() %>" loading="lazy">
                                       <div class="cake-card-overlay"></div>
                                       <div class="cake-card-badges">
                                         <span class="cake-number">N°<%= c.getNumber() %></span>

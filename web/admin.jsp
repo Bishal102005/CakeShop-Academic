@@ -574,9 +574,10 @@
       </span>
     </div>
 
-    <form method="POST" action="${pageContext.request.contextPath}/admin" enctype="multipart/form-data">
+    <form method="POST" action="${pageContext.request.contextPath}/admin" enctype="multipart/form-data" id="addCakeForm">
       <input type="hidden" name="action" value="addCake">
       <input type="hidden" name="tag"    id="tagHidden" value="">
+      <input type="hidden" name="cloudinary_url" id="cloudinaryUrl" value="">
 
       <div class="ack-section-label">◆ Identity</div>
 
@@ -749,6 +750,47 @@
     var defaultTab = <%= hasCustomerOrders ? "'orders'" : "'cakes'" %>;
     showTab(defaultTab);
   });
+
+  // Cloudinary direct upload integration
+  const CLOUDINARY_CLOUD_NAME = "<%= System.getenv("CLOUDINARY_CLOUD_NAME") != null ? System.getenv("CLOUDINARY_CLOUD_NAME") : "" %>";
+  const CLOUDINARY_UPLOAD_PRESET = "<%= System.getenv("CLOUDINARY_UPLOAD_PRESET") != null ? System.getenv("CLOUDINARY_UPLOAD_PRESET") : "" %>";
+
+  if (CLOUDINARY_CLOUD_NAME && CLOUDINARY_UPLOAD_PRESET) {
+    const addForm = document.getElementById('addCakeForm');
+    if (addForm) {
+      addForm.addEventListener('submit', async function(e) {
+        const fileInput = addForm.querySelector('input[type="file"]');
+        if (fileInput && fileInput.files.length > 0) {
+          e.preventDefault();
+          const submitBtn = addForm.querySelector('button[type="submit"]');
+          const originalText = submitBtn.innerHTML;
+          submitBtn.disabled = true;
+          submitBtn.innerHTML = '<span>Uploading image...</span>';
+
+          const file = fileInput.files[0];
+          const formData = new FormData();
+          formData.append('file', file);
+          formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+
+          try {
+            const res = await fetch('https://api.cloudinary.com/v1_1/' + CLOUDINARY_CLOUD_NAME + '/image/upload', {
+              method: 'POST',
+              body: formData
+            });
+            if (!res.ok) throw new Error('Cloudinary response was not OK');
+            const data = await res.json();
+            document.getElementById('cloudinaryUrl').value = data.secure_url;
+            fileInput.removeAttribute('name');
+            addForm.submit();
+          } catch(err) {
+            alert('Cloudinary Upload Failed: ' + err.message);
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalText;
+          }
+        }
+      });
+    }
+  }
 </script>
 
 </body>
