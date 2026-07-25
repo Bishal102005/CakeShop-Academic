@@ -51,6 +51,6 @@
         <div class="footer-bottom">
           <div class="ornament">◆</div>
           <p class="footer-copy">© 2026 Sweet Crumbs Bakery</p>
-          <p class="footer-note">· Baked with love ·</p>
+          <p class="footer-note">· Baked with love · <a href="https://bscreation.netlify.app/">BS Creation</a></p>
         </div>
       </footer>
