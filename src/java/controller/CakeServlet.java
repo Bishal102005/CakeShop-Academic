@@ -9,6 +9,7 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.sql.*;
 import java.util.ArrayList;
+import java.sql.Statement;
 import java.util.List;
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
@@ -95,7 +96,8 @@ public class CakeServlet extends HttpServlet {
         String tag = request.getParameter("tag");
         
         String imageFile = request.getParameter("cloudinary_url");
-        if (imageFile == null || imageFile.trim().isEmpty()) {
+        boolean skipImage = request.getParameter("skipImage") != null;
+        if ((imageFile == null || imageFile.trim().isEmpty()) && !skipImage) {
             try {
                 imageFile = saveUploadedImage(request.getPart("image_file"));
             } catch (Exception e) {
@@ -110,8 +112,8 @@ public class CakeServlet extends HttpServlet {
 
         String sql = "INSERT INTO cakes (number, code, name, description, tag, rating, price, image_file, ingredients) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
-        try (Connection conn = getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+           try (Connection conn = getConnection();
+               PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
 
             ps.setString(1, number);
             ps.setString(2, code != null ? code.toUpperCase() : "");
@@ -124,6 +126,17 @@ public class CakeServlet extends HttpServlet {
             ps.setString(9, ingredients != null ? ingredients : "");
 
             ps.executeUpdate();
+
+            if (skipImage) {
+                try (ResultSet keys = ps.getGeneratedKeys()) {
+                    if (keys.next()) {
+                        int newId = keys.getInt(1);
+                        response.setContentType("application/json;charset=UTF-8");
+                        response.getWriter().write("{\"id\":" + newId + "}");
+                        return;
+                    }
+                }
+            }
 
             response.sendRedirect(request.getContextPath() + "/view-orders?success=Cake+added+successfully!");
         } catch (Exception e) {
@@ -141,16 +154,19 @@ public class CakeServlet extends HttpServlet {
         }
 
         String imageFile = request.getParameter("cloudinary_url");
-        if (imageFile == null || imageFile.trim().isEmpty()) {
+        boolean skipImage = request.getParameter("skipImage") != null;
+        if ((imageFile == null || imageFile.trim().isEmpty())) {
             imageFile = request.getParameter("existing_image_file");
-            Part imagePart = request.getPart("image_file");
-            if (imagePart != null && imagePart.getSize() > 0) {
-                try {
-                    imageFile = saveUploadedImage(imagePart);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                    response.sendRedirect(request.getContextPath() + "/order.jsp?id=" + id + "&error=Please+upload+a+valid+cake+image.");
-                    return;
+            if (!skipImage) {
+                Part imagePart = request.getPart("image_file");
+                if (imagePart != null && imagePart.getSize() > 0) {
+                    try {
+                        imageFile = saveUploadedImage(imagePart);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        response.sendRedirect(request.getContextPath() + "/order.jsp?id=" + id + "&error=Please+upload+a+valid+cake+image.");
+                        return;
+                    }
                 }
             }
         }
@@ -176,6 +192,12 @@ public class CakeServlet extends HttpServlet {
             int updated = ps.executeUpdate();
             if (updated == 0) {
                 response.sendRedirect(request.getContextPath() + "/view-orders?error=Cake+not+found.");
+                return;
+            }
+
+            if (skipImage) {
+                response.setContentType("application/json;charset=UTF-8");
+                response.getWriter().write("{\"id\":" + id + "}");
                 return;
             }
 

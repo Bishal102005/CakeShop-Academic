@@ -766,39 +766,50 @@
   // Cloudinary direct upload integration
   const CLOUDINARY_CLOUD_NAME = "<%= System.getenv("CLOUDINARY_CLOUD_NAME") != null ? System.getenv("CLOUDINARY_CLOUD_NAME") : "" %>";
   const CLOUDINARY_UPLOAD_PRESET = "<%= System.getenv("CLOUDINARY_UPLOAD_PRESET") != null ? System.getenv("CLOUDINARY_UPLOAD_PRESET") : "" %>";
+  const CLOUDINARY_UPLOAD_FOLDER = "<%= System.getenv("CLOUDINARY_UPLOAD_FOLDER") != null ? System.getenv("CLOUDINARY_UPLOAD_FOLDER") : "" %>";
 
   if (CLOUDINARY_CLOUD_NAME && CLOUDINARY_UPLOAD_PRESET) {
     const addForm = document.getElementById('addCakeForm');
     if (addForm) {
       addForm.addEventListener('submit', async function(e) {
         const fileInput = addForm.querySelector('input[type="file"]');
-        if (fileInput && fileInput.files.length > 0) {
-          e.preventDefault();
-          const submitBtn = addForm.querySelector('button[type="submit"]');
-          const originalText = submitBtn.innerHTML;
-          submitBtn.disabled = true;
-          submitBtn.innerHTML = '<span>Uploading image...</span>';
+        e.preventDefault();
+        const submitBtn = addForm.querySelector('button[type="submit"]');
+        const originalText = submitBtn.innerHTML;
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span>Saving…</span>';
 
-          const file = fileInput.files[0];
-          const formData = new FormData();
-          formData.append('file', file);
-          formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+        // Step 1: create cake record without image
+        const meta = new FormData(addForm);
+        meta.delete('image_file');
+        meta.append('skipImage','1');
 
-          try {
-            const res = await fetch('https://api.cloudinary.com/v1_1/' + CLOUDINARY_CLOUD_NAME + '/image/upload', {
-              method: 'POST',
-              body: formData
-            });
-            if (!res.ok) throw new Error('Cloudinary response was not OK');
-            const data = await res.json();
-            document.getElementById('cloudinaryUrl').value = data.secure_url;
-            fileInput.removeAttribute('name');
-            addForm.submit();
-          } catch(err) {
-            alert('Cloudinary Upload Failed: ' + err.message);
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = originalText;
+        try {
+          const res = await fetch(addForm.action, { method: 'POST', body: meta });
+          if (!res.ok) throw new Error('Could not create cake');
+          const data = await res.json();
+          const cakeId = data.id;
+          if (!cakeId) throw new Error('No cake id returned');
+
+          // Step 2: upload image to server and save URL into DB
+          if (fileInput && fileInput.files.length > 0) {
+            const fd = new FormData();
+            fd.append('file', fileInput.files[0]);
+            if (CLOUDINARY_UPLOAD_FOLDER) fd.append('folder', CLOUDINARY_UPLOAD_FOLDER);
+            fd.append('save_cake_id', cakeId);
+            const upRes = await fetch('<%= pageContext.request.contextPath %>/upload-cloudinary', { method: 'POST', body: fd });
+            if (!upRes.ok) {
+              const errText = await upRes.text();
+              throw new Error('Upload failed: ' + errText);
+            }
           }
+
+          // Success — redirect to view orders
+          window.location.href = '<%= pageContext.request.contextPath %>/view-orders?success=Cake+added+successfully!';
+        } catch (err) {
+          alert(err.message);
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = originalText;
         }
       });
     }

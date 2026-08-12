@@ -331,43 +331,49 @@
       // Cloudinary direct upload integration
       const CLOUDINARY_CLOUD_NAME = "<%= System.getenv("CLOUDINARY_CLOUD_NAME") != null ? System.getenv("CLOUDINARY_CLOUD_NAME") : "" %>";
       const CLOUDINARY_UPLOAD_PRESET = "<%= System.getenv("CLOUDINARY_UPLOAD_PRESET") != null ? System.getenv("CLOUDINARY_UPLOAD_PRESET") : "" %>";
+      const CLOUDINARY_UPLOAD_FOLDER = "<%= System.getenv("CLOUDINARY_UPLOAD_FOLDER") != null ? System.getenv("CLOUDINARY_UPLOAD_FOLDER") : "" %>";
 
-      if (CLOUDINARY_CLOUD_NAME && CLOUDINARY_UPLOAD_PRESET) {
-        const editForm = document.getElementById('editCakeForm');
-        if (editForm) {
-          editForm.addEventListener('submit', async function(e) {
-            const fileInput = editForm.querySelector('input[type="file"]');
-            if (fileInput && fileInput.files.length > 0) {
-              e.preventDefault();
-              const submitBtn = editForm.querySelector('button[type="submit"]');
-              const originalText = submitBtn.innerHTML;
-              submitBtn.disabled = true;
-              submitBtn.innerHTML = 'Uploading image...';
+            if (CLOUDINARY_CLOUD_NAME && CLOUDINARY_UPLOAD_PRESET) {
+                const editForm = document.getElementById('editCakeForm');
+                if (editForm) {
+                    editForm.addEventListener('submit', async function(e) {
+                        const fileInput = editForm.querySelector('input[type="file"]');
+                        e.preventDefault();
+                        const submitBtn = editForm.querySelector('button[type="submit"]') || editForm.querySelector('button');
+                        const originalText = submitBtn ? submitBtn.innerHTML : '';
+                        if (submitBtn) { submitBtn.disabled = true; submitBtn.innerHTML = 'Saving…'; }
 
-              const file = fileInput.files[0];
-              const formData = new FormData();
-              formData.append('file', file);
-              formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+                        // Step 1: update cake without image
+                        const meta = new FormData(editForm);
+                        meta.delete('image_file');
+                        meta.append('skipImage','1');
+                        try {
+                            const res = await fetch(editForm.action, { method: 'POST', body: meta });
+                            if (!res.ok) throw new Error('Could not update cake');
+                            const data = await res.json();
+                            const cakeId = data.id || editForm.querySelector('input[name="id"]').value;
 
-              try {
-                const res = await fetch('https://api.cloudinary.com/v1_1/' + CLOUDINARY_CLOUD_NAME + '/image/upload', {
-                  method: 'POST',
-                  body: formData
-                });
-                if (!res.ok) throw new Error('Cloudinary response was not OK');
-                const data = await res.json();
-                editForm.querySelector('#cloudinaryUrl').value = data.secure_url;
-                fileInput.removeAttribute('name');
-                editForm.submit();
-              } catch(err) {
-                alert('Cloudinary Upload Failed: ' + err.message);
-                submitBtn.disabled = false;
-                submitBtn.innerHTML = originalText;
-              }
+                            // Step 2: if file present, upload to server and save
+                            if (fileInput && fileInput.files.length > 0) {
+                                const fd = new FormData();
+                                fd.append('file', fileInput.files[0]);
+                                if (CLOUDINARY_UPLOAD_FOLDER) fd.append('folder', CLOUDINARY_UPLOAD_FOLDER);
+                                fd.append('save_cake_id', cakeId);
+                                const upRes = await fetch('<%= pageContext.request.contextPath %>/upload-cloudinary', { method: 'POST', body: fd });
+                                if (!upRes.ok) {
+                                    const errText = await upRes.text();
+                                    throw new Error('Upload failed: ' + errText);
+                                }
+                            }
+
+                            window.location.href = '<%= pageContext.request.contextPath %>/order.jsp?id=' + cakeId + '&success=Cake+updated+successfully!';
+                        } catch(err) {
+                            alert(err.message);
+                            if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = originalText; }
+                        }
+                    });
+                }
             }
-          });
-        }
-      }
     </script>
     <%@include file="footer.jsp" %>
 </body>
