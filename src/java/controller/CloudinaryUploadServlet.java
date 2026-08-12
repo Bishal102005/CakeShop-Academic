@@ -142,7 +142,7 @@ public class CloudinaryUploadServlet extends HttpServlet {
 
     private static String extractJsonField(String json, String field) {
         if (json == null || field == null) return null;
-        String quoted = "\"" + field + "\"\s*:\s*";
+        String quoted = "\"" + field + "\"\\s*:\\s*";
         int idx = json.indexOf('"' + field + '"');
         if (idx < 0) return null;
         int colon = json.indexOf(':', idx);
