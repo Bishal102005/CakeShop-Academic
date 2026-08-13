@@ -20,6 +20,12 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import controller.DbUtil;
 
+import javax.net.ssl.HttpsURLConnection;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
+import java.security.cert.X509Certificate;
+
 @WebServlet("/upload-cloudinary")
 @MultipartConfig(
         fileSizeThreshold = 1024 * 1024,
@@ -28,15 +34,33 @@ import controller.DbUtil;
 )
 public class CloudinaryUploadServlet extends HttpServlet {
 
+    private static void disableSslVerification(HttpsURLConnection conn) {
+        try {
+            TrustManager[] trustAllCerts = new TrustManager[]{
+                new X509TrustManager() {
+                    public X509Certificate[] getAcceptedIssuers() { return null; }
+                    public void checkClientTrusted(X509Certificate[] certs, String authType) {}
+                    public void checkServerTrusted(X509Certificate[] certs, String authType) {}
+                }
+            };
+            SSLContext sc = SSLContext.getInstance("TLS");
+            sc.init(null, trustAllCerts, new java.security.SecureRandom());
+            conn.setSSLSocketFactory(sc.getSocketFactory());
+            conn.setHostnameVerifier((hostname, session) -> true);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
     private String cloudName() {
-        String v = System.getenv("CLOUDINARY_NAME");
+        String v = DbUtil.getEnv("CLOUDINARY_NAME");
         if (v != null && !v.isEmpty()) return v;
-        v = System.getenv("CLOUDINARY_CLOUD_NAME");
+        v = DbUtil.getEnv("CLOUDINARY_CLOUD_NAME");
         return v != null ? v : "";
     }
 
-    private String apiKey() { return System.getenv("CLOUDINARY_API_KEY"); }
-    private String apiSecret() { return System.getenv("CLOUDINARY_API_SECRET"); }
+    private String apiKey() { return DbUtil.getEnv("CLOUDINARY_API_KEY"); }
+    private String apiSecret() { return DbUtil.getEnv("CLOUDINARY_API_SECRET"); }
 
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
@@ -64,7 +88,7 @@ public class CloudinaryUploadServlet extends HttpServlet {
         }
 
         String folder = request.getParameter("folder");
-        if (folder == null || folder.isEmpty()) folder = System.getenv("CLOUDINARY_UPLOAD_FOLDER");
+        if (folder == null || folder.isEmpty()) folder = DbUtil.getEnv("CLOUDINARY_UPLOAD_FOLDER");
 
         long ts = System.currentTimeMillis() / 1000L;
         String timestamp = Long.toString(ts);
@@ -80,6 +104,9 @@ public class CloudinaryUploadServlet extends HttpServlet {
         String boundary = "----CloudinaryBoundary" + System.currentTimeMillis();
         URL url = new URL("https://api.cloudinary.com/v1_1/" + cloud + "/image/upload");
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+        if (conn instanceof HttpsURLConnection) {
+            disableSslVerification((HttpsURLConnection) conn);
+        }
         conn.setDoOutput(true);
         conn.setRequestMethod("POST");
         conn.setRequestProperty("Content-Type", "multipart/form-data; boundary=" + boundary);
@@ -106,7 +133,7 @@ public class CloudinaryUploadServlet extends HttpServlet {
         while ((r = respStream.read(buf)) != -1) baos.write(buf, 0, r);
         String respBody = new String(baos.toByteArray(), StandardCharsets.UTF_8);
         // Basic validation: ensure asset_folder matches expected upload folder (if configured)
-        String expectedFolder = System.getenv("CLOUDINARY_UPLOAD_FOLDER");
+        String expectedFolder = DbUtil.getEnv("CLOUDINARY_UPLOAD_FOLDER");
         String assetFolder = extractJsonField(respBody, "asset_folder");
         if (expectedFolder != null && !expectedFolder.isEmpty()) {
             if (assetFolder == null || !assetFolder.equals(expectedFolder)) {

@@ -1,5 +1,5 @@
 <%@page contentType="text/html" pageEncoding="UTF-8"%>
-<%@page import="controller.AuthUtil, controller.CakeDao, model.User, model.Cake"%>
+<%@page import="controller.AuthUtil, controller.CakeDao, model.User, model.Cake, controller.DbUtil"%>
 <%
     boolean isAdmin = AuthUtil.isAdminLoggedIn(request);
     User currentUser = AuthUtil.getLoggedInUser(request);
@@ -256,7 +256,7 @@
         <div style="padding: 1.5rem 2rem; background: #fbf9f6; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
             <a href="${pageContext.request.contextPath}/" style="color: #8c7662; font-size: 0.9rem; text-decoration: underline; font-weight: 500;">← Back to Showcase Menu</a>
             <div style="display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap;">
-                <form method="POST" action="${pageContext.request.contextPath}/admin" onsubmit="return confirm('Delete this cake from the menu?');" style="margin:0;">
+                <form method="POST" action="${pageContext.request.contextPath}/admin" style="margin:0;">
                     <input type="hidden" name="action" value="deleteCake">
                     <input type="hidden" name="id" value="<%= cake.getId() %>">
                     <button type="submit" class="btn btn-burgundy btn-sm">Delete Cake</button>
@@ -275,7 +275,7 @@
             <div style="position: absolute; bottom: -10px; left: 50%; transform: translateX(-50%); width: 20px; height: 20px; background: #fff; rotate: 45deg;"></div>
         </div>
 
-        <form method="POST" action="SubmitOrderServlet" style="padding: 2.5rem 2rem;">
+        <form method="POST" action="${pageContext.request.contextPath}/SubmitOrderServlet" style="padding: 2.5rem 2rem;">
             
             <div style="background: #fbf9f6; padding: 1.25rem; border-radius: 8px; border: 1px dashed #e1d7cc; margin-bottom: 2rem;">
                 <div style="font-size: 0.75rem; font-weight: bold; text-transform: uppercase; color: #8c7662; margin-bottom: 0.5rem; letter-spacing: 0.05em;">Selected Masterpiece</div>
@@ -316,7 +316,7 @@
                 <textarea name="customer_address" rows="3" placeholder="Apartment/House No, Street, Landmark, Pincode" style="width: 100%; padding: 10px; border: 1px solid #e1d7cc; border-radius: 6px; font-family: inherit; background: #fffcf9; resize: vertical;" required></textarea>
             </div>
 
-            <button type="submit" style="width: 100%; padding: 14px; background: #4a3319; color: #fff; border: none; border-radius: 6px; font-weight: bold; font-size: 1rem; cursor: pointer; transition: background 0.2s; box-shadow: 0 4px 12px rgba(74,51,25,0.15);">
+            <button type="submit" id="submitOrderBtn" style="width: 100%; padding: 14px; background: #4a3319; color: #fff; border: none; border-radius: 6px; font-weight: bold; font-size: 1rem; cursor: pointer; transition: background 0.2s; box-shadow: 0 4px 12px rgba(74,51,25,0.15);">
                 Confirm Order (Cash on Delivery)
             </button>
             
@@ -329,9 +329,9 @@
 
     <script>
       // Cloudinary direct upload integration
-      const CLOUDINARY_CLOUD_NAME = "<%= System.getenv("CLOUDINARY_CLOUD_NAME") != null ? System.getenv("CLOUDINARY_CLOUD_NAME") : "" %>";
-      const CLOUDINARY_UPLOAD_PRESET = "<%= System.getenv("CLOUDINARY_UPLOAD_PRESET") != null ? System.getenv("CLOUDINARY_UPLOAD_PRESET") : "" %>";
-      const CLOUDINARY_UPLOAD_FOLDER = "<%= System.getenv("CLOUDINARY_UPLOAD_FOLDER") != null ? System.getenv("CLOUDINARY_UPLOAD_FOLDER") : "" %>";
+      const CLOUDINARY_CLOUD_NAME = "<%= DbUtil.getEnv("CLOUDINARY_CLOUD_NAME") != null ? DbUtil.getEnv("CLOUDINARY_CLOUD_NAME") : "" %>";
+      const CLOUDINARY_UPLOAD_PRESET = "<%= DbUtil.getEnv("CLOUDINARY_UPLOAD_PRESET") != null ? DbUtil.getEnv("CLOUDINARY_UPLOAD_PRESET") : "" %>";
+      const CLOUDINARY_UPLOAD_FOLDER = "<%= DbUtil.getEnv("CLOUDINARY_UPLOAD_FOLDER") != null ? DbUtil.getEnv("CLOUDINARY_UPLOAD_FOLDER") : "" %>";
 
             if (CLOUDINARY_CLOUD_NAME && CLOUDINARY_UPLOAD_PRESET) {
                 const editForm = document.getElementById('editCakeForm');
@@ -348,7 +348,8 @@
                         meta.delete('image_file');
                         meta.append('skipImage','1');
                         try {
-                            const res = await fetch(editForm.action, { method: 'POST', body: meta });
+                            const formUrl = editForm.getAttribute('action') || '${pageContext.request.contextPath}/admin';
+                            const res = await fetch(formUrl, { method: 'POST', body: meta });
                             if (!res.ok) throw new Error('Could not update cake');
                             const data = await res.json();
                             const cakeId = data.id || editForm.querySelector('input[name="id"]').value;
@@ -359,14 +360,14 @@
                                 fd.append('file', fileInput.files[0]);
                                 if (CLOUDINARY_UPLOAD_FOLDER) fd.append('folder', CLOUDINARY_UPLOAD_FOLDER);
                                 fd.append('save_cake_id', cakeId);
-                                const upRes = await fetch('<%= pageContext.request.contextPath %>/upload-cloudinary', { method: 'POST', body: fd });
+                                const upRes = await fetch('${pageContext.request.contextPath}/upload-cloudinary', { method: 'POST', body: fd });
                                 if (!upRes.ok) {
                                     const errText = await upRes.text();
                                     throw new Error('Upload failed: ' + errText);
                                 }
                             }
 
-                            window.location.href = '<%= pageContext.request.contextPath %>/order.jsp?id=' + cakeId + '&success=Cake+updated+successfully!';
+                            window.location.href = '${pageContext.request.contextPath}/order.jsp?id=' + cakeId + '&success=Cake+updated+successfully!';
                         } catch(err) {
                             alert(err.message);
                             if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = originalText; }

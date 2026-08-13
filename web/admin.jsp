@@ -1,4 +1,5 @@
-<%@page import="java.util.List,java.util.Map,controller.AuthUtil,controller.OrderDao" contentType="text/html" pageEncoding="UTF-8"%>
+<%@page import="java.util.List,java.util.Map,controller.AuthUtil,controller.OrderDao,controller.DbUtil" contentType="text/html" pageEncoding="UTF-8"%>
+<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -764,9 +765,9 @@
   });
 
   // Cloudinary direct upload integration
-  const CLOUDINARY_CLOUD_NAME = "<%= System.getenv("CLOUDINARY_CLOUD_NAME") != null ? System.getenv("CLOUDINARY_CLOUD_NAME") : "" %>";
-  const CLOUDINARY_UPLOAD_PRESET = "<%= System.getenv("CLOUDINARY_UPLOAD_PRESET") != null ? System.getenv("CLOUDINARY_UPLOAD_PRESET") : "" %>";
-  const CLOUDINARY_UPLOAD_FOLDER = "<%= System.getenv("CLOUDINARY_UPLOAD_FOLDER") != null ? System.getenv("CLOUDINARY_UPLOAD_FOLDER") : "" %>";
+  const CLOUDINARY_CLOUD_NAME = "<%= DbUtil.getEnv("CLOUDINARY_CLOUD_NAME") != null ? DbUtil.getEnv("CLOUDINARY_CLOUD_NAME") : "" %>";
+  const CLOUDINARY_UPLOAD_PRESET = "<%= DbUtil.getEnv("CLOUDINARY_UPLOAD_PRESET") != null ? DbUtil.getEnv("CLOUDINARY_UPLOAD_PRESET") : "" %>";
+  const CLOUDINARY_UPLOAD_FOLDER = "<%= DbUtil.getEnv("CLOUDINARY_UPLOAD_FOLDER") != null ? DbUtil.getEnv("CLOUDINARY_UPLOAD_FOLDER") : "" %>";
 
   if (CLOUDINARY_CLOUD_NAME && CLOUDINARY_UPLOAD_PRESET) {
     const addForm = document.getElementById('addCakeForm');
@@ -785,7 +786,8 @@
         meta.append('skipImage','1');
 
         try {
-          const res = await fetch(addForm.action, { method: 'POST', body: meta });
+          const formUrl = addForm.getAttribute('action') || '${pageContext.request.contextPath}/admin';
+          const res = await fetch(formUrl, { method: 'POST', body: meta });
           if (!res.ok) throw new Error('Could not create cake');
           const data = await res.json();
           const cakeId = data.id;
@@ -797,7 +799,7 @@
             fd.append('file', fileInput.files[0]);
             if (CLOUDINARY_UPLOAD_FOLDER) fd.append('folder', CLOUDINARY_UPLOAD_FOLDER);
             fd.append('save_cake_id', cakeId);
-            const upRes = await fetch('<%= pageContext.request.contextPath %>/upload-cloudinary', { method: 'POST', body: fd });
+            const upRes = await fetch('${pageContext.request.contextPath}/upload-cloudinary', { method: 'POST', body: fd });
             if (!upRes.ok) {
               const errText = await upRes.text();
               throw new Error('Upload failed: ' + errText);
@@ -805,7 +807,7 @@
           }
 
           // Success — redirect to view orders
-          window.location.href = '<%= pageContext.request.contextPath %>/view-orders?success=Cake+added+successfully!';
+            window.location.href = '${pageContext.request.contextPath}/view-orders?success=Cake+added+successfully!';
         } catch (err) {
           alert(err.message);
           submitBtn.disabled = false;

@@ -13,9 +13,9 @@ public final class DbUtil {
     private static final String URL;
     private static final String USER;
     private static final String PASSWORD;
+    private static final Map<String, String> ENV_MAP = new HashMap<>();
 
     static {
-        Map<String, String> envMap = new HashMap<>();
         try {
             File envFile = findDotEnvFile();
             if (envFile != null && envFile.exists()) {
@@ -30,7 +30,7 @@ public final class DbUtil {
                         if (idx > 0) {
                             String key = line.substring(0, idx).trim();
                             String val = line.substring(idx + 1).trim();
-                            envMap.put(key, val);
+                            ENV_MAP.put(key, val);
                         }
                     }
                 }
@@ -39,17 +39,17 @@ public final class DbUtil {
         }
 
         String dbUrl = System.getenv("DB_URL");
-        if (dbUrl == null) dbUrl = envMap.get("DB_URL");
+        if (dbUrl == null) dbUrl = ENV_MAP.get("DB_URL");
         if (dbUrl == null) dbUrl = "jdbc:postgresql://localhost:5432/postgres?sslmode=disable";
         URL = dbUrl;
 
         String dbUser = System.getenv("DB_USER");
-        if (dbUser == null) dbUser = envMap.get("DB_USER");
+        if (dbUser == null) dbUser = ENV_MAP.get("DB_USER");
         if (dbUser == null) dbUser = "postgres";
         USER = dbUser;
 
         String dbPassword = System.getenv("DB_PASSWORD");
-        if (dbPassword == null) dbPassword = envMap.get("DB_PASSWORD");
+        if (dbPassword == null) dbPassword = ENV_MAP.get("DB_PASSWORD");
         if (dbPassword == null) dbPassword = "postgres";
         PASSWORD = dbPassword;
 
@@ -63,14 +63,34 @@ public final class DbUtil {
     private DbUtil() {
     }
 
+    public static String getEnv(String key) {
+        String val = System.getenv(key);
+        if (val != null && !val.trim().isEmpty()) {
+            return val.trim();
+        }
+        return ENV_MAP.get(key);
+    }
+
     private static File findDotEnvFile() {
+        // Check current directory
         File f = new File(".env");
+        System.err.println("[DbUtil] Checking .env in current dir: " + f.getAbsolutePath() + " -> exists: " + f.exists());
         if (f.exists()) {
             return f;
         }
+        
+        // Check WEB-INF
+        File webInf = new File("WEB-INF/.env");
+        System.err.println("[DbUtil] Checking .env in WEB-INF: " + webInf.getAbsolutePath() + " -> exists: " + webInf.exists());
+        if (webInf.exists()) {
+            return webInf;
+        }
+        
+        // Check parent directories
         File parent = new File("..").getAbsoluteFile();
         for (int i = 0; i < 4; i++) {
             File possible = new File(parent, ".env");
+            System.err.println("[DbUtil] Checking .env in parent[" + i + "]: " + possible.getAbsolutePath() + " -> exists: " + possible.exists());
             if (possible.exists()) {
                 return possible;
             }
@@ -79,6 +99,8 @@ public final class DbUtil {
                 break;
             }
         }
+        
+        System.err.println("[DbUtil] .env file not found, using defaults");
         return null;
     }
 
